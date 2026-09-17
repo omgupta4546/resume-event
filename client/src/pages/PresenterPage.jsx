@@ -1,6 +1,58 @@
 import { useState, useEffect, useCallback } from 'react';
 import socket from '../socket';
 
+// ── GAMIFICATION SOUND EFFECTS ──
+let audioCtx = null;
+const initAudio = () => {
+  if (!audioCtx) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) audioCtx = new AudioContext();
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+};
+
+const playTickSound = () => {
+  initAudio();
+  if (!audioCtx) return;
+  try {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.1);
+  } catch (e) {
+    console.warn(e);
+  }
+};
+
+const playBuzzerSound = () => {
+  initAudio();
+  if (!audioCtx) return;
+  try {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.5);
+    gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.5);
+  } catch (e) {
+    console.warn(e);
+  }
+};
+
 export default function PresenterPage() {
   const [resumeIndex, setResumeIndex] = useState(0);
   const [totalResumes, setTotalResumes] = useState(10);
@@ -53,8 +105,11 @@ export default function PresenterPage() {
       setShowIntermediateBoard(false);
     };
 
-    const onTimerTick = ({ timeRemaining: t }) => {
-      setTimeRemaining(t);
+    const onTimerTick = ({ timeRemaining: tr }) => {
+      setTimeRemaining(tr);
+      if (tr <= 5 && tr > 0) {
+        playTickSound();
+      }
     };
 
     const onLiveTally = (data) => {
@@ -67,8 +122,8 @@ export default function PresenterPage() {
       setPollEnded(true);
       setFinalResult(data);
       setVotes({ accept: data.accept, reject: data.reject });
-      // Show the big result overlay
       setShowResultOverlay(true);
+      playBuzzerSound();
     };
 
     const onPollReset = () => {
@@ -229,24 +284,27 @@ export default function PresenterPage() {
       <div className="h-screen w-screen bg-dark-900 flex flex-col overflow-hidden text-center justify-center p-8">
         <h1 className="text-6xl font-black text-text-primary mb-12 animate-slide-up">🏆 Live Leaderboard 🏆</h1>
         <div className="max-w-4xl w-full mx-auto grid gap-6">
-          {topStudents.length === 0 && <p className="text-2xl text-text-secondary">No points awarded yet!</p>}
-          {topStudents.map((s, i) => (
-            <div key={i} className="glass-card p-6 flex items-center justify-between animate-slide-up" style={{ animationDelay: `${i * 100}ms` }}>
-              <div className="flex items-center gap-6">
-                <span className="text-5xl font-black text-text-secondary w-16">{i + 1}</span>
-                <div className="text-left">
-                  <h2 className="text-3xl font-bold text-text-primary">{s.name}</h2>
-                  <p className="text-lg text-text-secondary mt-1">{s.branch}</p>
+          {topStudents.length === 0 && <p className="text-2xl text-text-secondary mt-12 animate-fade-in" style={{ animationDelay: '1s' }}>No points awarded yet!</p>}
+          {topStudents.map((s, i) => {
+            const delay = (topStudents.length - i) * 1.5;
+            return (
+              <div key={i} className="glass-card p-6 flex items-center justify-between animate-dramatic" style={{ animationDelay: `${delay}s` }}>
+                <div className="flex items-center gap-6">
+                  <span className="text-5xl font-black text-text-secondary w-16">{i + 1}</span>
+                  <div className="text-left">
+                    <h2 className="text-3xl font-bold text-text-primary">{s.name}</h2>
+                    <p className="text-lg text-text-secondary mt-1">{s.branch}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-4xl font-black text-accent-amber">{s.score} pts</div>
+                  <div className="text-lg text-accent-green mt-1">
+                    {s.correct}/{s.total} Correct {s.streak >= 2 && <span className="ml-2">🔥 Streak</span>}
+                  </div>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-4xl font-black text-accent-amber">{s.score} pts</div>
-                <div className="text-lg text-accent-green mt-1">
-                  {s.correct}/{s.total} Correct {s.streak >= 2 && <span className="ml-2">🔥 Streak</span>}
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );

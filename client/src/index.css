@@ -90,6 +90,13 @@
   100% { transform: translateY(-100vh) scale(0.8); opacity: 0; }
 }
 
+@keyframes dramatic-reveal {
+  0% { opacity: 0; transform: scale(0.9) translateY(40px); }
+  1% { opacity: 0; transform: scale(0.9) translateY(40px); }
+  50% { opacity: 1; transform: scale(1.05) translateY(-5px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
 .animate-slide-up {
   animation: slide-up 0.4s ease-out both;
 }
@@ -108,6 +115,11 @@
 
 .animate-float-up {
   animation: float-up 3s ease-out forwards;
+}
+
+.animate-dramatic {
+  opacity: 0;
+  animation: dramatic-reveal 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
 .animate-vote-success {
