@@ -310,6 +310,9 @@ async function endPoll() {
 
   // Final tally to control room
   io.to('control').emit('live_tally', finalTally);
+  
+  // Broadcast updated allResults to control room for the Leaderboard
+  io.to('control').emit('all_results', { results: allResults });
 
   // ── Persist to MongoDB ──
   try {
