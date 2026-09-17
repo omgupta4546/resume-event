@@ -41,9 +41,7 @@ app.use(express.static(path.join(__dirname, '..', 'client', 'public'), {
   etag: false
 }));
 
-// Serve the built React client
-const clientBuildPath = path.join(__dirname, '..', 'client', 'dist');
-app.use(express.static(clientBuildPath));
+// (Frontend is hosted on Vercel, so we don't serve the React build here anymore)
 
 // API: Get all stored results
 app.get('/api/results', async (_req, res) => {
@@ -60,9 +58,14 @@ app.get('/api/resumes', (_req, res) => {
   res.json(RESUMES);
 });
 
-// SPA fallback — send index.html for all non-API routes
-app.get('*', (_req, res) => {
-  res.sendFile(path.join(clientBuildPath, 'index.html'));
+// Root endpoint for health checks (e.g. Render)
+app.get('/', (_req, res) => {
+  res.send('Resume Vote API Backend is running! Frontend is hosted on Vercel.');
+});
+
+// Fallback for unknown API routes
+app.use((_req, res) => {
+  res.status(404).json({ error: 'Endpoint not found' });
 });
 
 // ─── In-Memory Live State ────────────────────────────────────────
