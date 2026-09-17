@@ -18,10 +18,6 @@ const RESUMES = [
   '/resumes/resume4.png',
   '/resumes/resume5.png',
   '/resumes/resume6.png',
-  '/resumes/resume7.png',
-  '/resumes/resume8.png',
-  '/resumes/resume9.png',
-  '/resumes/resume10.png',
 ];
 
 // ─── Express + Socket.io Setup ───────────────────────────────────
