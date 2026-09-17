@@ -186,8 +186,9 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Record vote
-    state.votedUsers.set(uniqueKey, { name, year, branch, vote });
+    // Record vote with speed score
+    const score = state.duration > 0 ? Math.max(10, Math.round((state.timeRemaining / state.duration) * 1000)) : 100;
+    state.votedUsers.set(uniqueKey, { name, year, branch, vote, score });
     state.votes[vote]++;
 
     // Acknowledge to student
@@ -233,6 +234,18 @@ io.on('connection', (socket) => {
     state.duration += amount; // Optional: increases total progress bar time too
   });
 
+  // ── Gamification: Show Leaderboard ──
+  socket.on('show_leaderboard', () => {
+    if (socket.data.role !== 'admin') return;
+    io.to('control').emit('show_intermediate_leaderboard');
+  });
+
+  // ── Gamification: Send Emoji ──
+  socket.on('send_emoji', ({ emoji }) => {
+    // Broadcast to control room (Admin + Presenter)
+    io.to('control').emit('show_emoji', { emoji, id: Math.random().toString(36).substring(7) });
+  });
+
   // ── Disconnect ──
   socket.on('disconnect', () => {
     if (socket.data.role === 'student') {
@@ -267,6 +280,7 @@ async function endPoll() {
       year: v.year,
       branch: v.branch,
       vote: v.vote,
+      score: v.score,
     });
   }
 

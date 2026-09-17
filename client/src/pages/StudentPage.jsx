@@ -115,6 +115,12 @@ function VotingRemote({ student }) {
   const [resumeIndex, setResumeIndex] = useState(0);
   const [totalResumes, setTotalResumes] = useState(10);
 
+  const sendEmoji = (emoji) => {
+    socket.emit('send_emoji', { emoji });
+    // optional: add haptic feedback
+    if (navigator.vibrate) navigator.vibrate(50);
+  };
+
   useEffect(() => {
     socket.emit('register_student');
 
@@ -286,6 +292,19 @@ function VotingRemote({ student }) {
             <span className="w-2 h-2 bg-accent-green rounded-full animate-pulse" />
             Connected as <span className="font-semibold text-text-primary">{student.name}</span>
           </div>
+          
+          {/* Floating Emoji Bar */}
+          <div className="mt-12 flex gap-3 justify-center animate-slide-up" style={{ animationDelay: '0.2s' }}>
+            {['🔥', '🤯', '👎', '💯', '😂'].map(emoji => (
+              <button
+                key={emoji}
+                onClick={() => sendEmoji(emoji)}
+                className="w-12 h-12 flex items-center justify-center text-2xl bg-dark-700/50 hover:bg-dark-600 rounded-full border border-glass-border transition-transform active:scale-90"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -353,6 +372,19 @@ function VotingRemote({ student }) {
           <span className="text-3xl">✗</span>
           <span className="font-bold tracking-widest text-sm">REJECT</span>
         </button>
+      </div>
+
+      {/* Floating Emoji Bar (Smaller for voting screen) */}
+      <div className="flex-none flex justify-center gap-2 pb-4 pt-1">
+        {['🔥', '🤯', '👎', '💯', '😂'].map(emoji => (
+          <button
+            key={emoji}
+            onClick={() => sendEmoji(emoji)}
+            className="w-10 h-10 flex items-center justify-center text-xl bg-dark-700/50 hover:bg-dark-600 rounded-full border border-glass-border transition-transform active:scale-90"
+          >
+            {emoji}
+          </button>
+        ))}
       </div>
     </div>
   );

@@ -14,7 +14,9 @@ export default function PresenterPage() {
   const [showResultOverlay, setShowResultOverlay] = useState(false);
   const [allResults, setAllResults] = useState([]);
   const [showFinalBoard, setShowFinalBoard] = useState(false);
+  const [showIntermediateBoard, setShowIntermediateBoard] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [emojis, setEmojis] = useState([]);
 
   useEffect(() => {
     socket.emit('register_presenter');
@@ -48,6 +50,7 @@ export default function PresenterPage() {
       setFinalResult(null);
       setShowResultOverlay(false);
       setShowFinalBoard(false);
+      setShowIntermediateBoard(false);
     };
 
     const onTimerTick = ({ timeRemaining: t }) => {
@@ -85,6 +88,17 @@ export default function PresenterPage() {
       setAllResults(data.results);
     };
 
+    const onShowEmoji = (data) => {
+      setEmojis(prev => [...prev, data]);
+      setTimeout(() => {
+        setEmojis(prev => prev.filter(e => e.id !== data.id));
+      }, 3000);
+    };
+
+    const onShowIntermediate = () => {
+      setShowIntermediateBoard(true);
+    };
+
     socket.on('sync_state', onSyncState);
     socket.on('resume_changed', onResumeChanged);
     socket.on('poll_started', onPollStarted);
@@ -94,6 +108,8 @@ export default function PresenterPage() {
     socket.on('poll_reset', onPollReset);
     socket.on('status_update', onStatusUpdate);
     socket.on('all_results', onAllResults);
+    socket.on('show_emoji', onShowEmoji);
+    socket.on('show_intermediate_leaderboard', onShowIntermediate);
 
     return () => {
       socket.off('sync_state', onSyncState);
@@ -105,6 +121,8 @@ export default function PresenterPage() {
       socket.off('poll_reset', onPollReset);
       socket.off('status_update', onStatusUpdate);
       socket.off('all_results', onAllResults);
+      socket.off('show_emoji', onShowEmoji);
+      socket.off('show_intermediate_leaderboard', onShowIntermediate);
     };
   }, []);
 
@@ -181,6 +199,58 @@ export default function PresenterPage() {
   const isUrgent = timeRemaining <= 5 && timeRemaining > 0;
 
   const resumeImagePath = `/resumes/resume${resumeIndex + 1}.png`;
+
+  // ── GAMIFIED LEADERBOARD ──
+  const calculateLeaderboard = () => {
+    const studentScores = {};
+    allResults.forEach(poll => {
+      if (!poll.correctOption) return;
+      (poll.voters || []).forEach(voter => {
+        const key = `${voter.name}|${voter.branch}`;
+        if (!studentScores[key]) {
+          studentScores[key] = { name: voter.name, branch: voter.branch, score: 0, correct: 0, total: 0, streak: 0 };
+        }
+        studentScores[key].total++;
+        if (voter.vote === poll.correctOption) {
+          studentScores[key].correct++;
+          studentScores[key].score += (voter.score || 100);
+          studentScores[key].streak++;
+        } else {
+          studentScores[key].streak = 0;
+        }
+      });
+    });
+    return Object.values(studentScores).sort((a, b) => b.score - a.score);
+  };
+
+  if (showIntermediateBoard) {
+    const topStudents = calculateLeaderboard().slice(0, 5);
+    return (
+      <div className="h-screen w-screen bg-dark-900 flex flex-col overflow-hidden text-center justify-center p-8">
+        <h1 className="text-6xl font-black text-text-primary mb-12 animate-slide-up">🏆 Live Leaderboard 🏆</h1>
+        <div className="max-w-4xl w-full mx-auto grid gap-6">
+          {topStudents.length === 0 && <p className="text-2xl text-text-secondary">No points awarded yet!</p>}
+          {topStudents.map((s, i) => (
+            <div key={i} className="glass-card p-6 flex items-center justify-between animate-slide-up" style={{ animationDelay: `${i * 100}ms` }}>
+              <div className="flex items-center gap-6">
+                <span className="text-5xl font-black text-text-secondary w-16">{i + 1}</span>
+                <div className="text-left">
+                  <h2 className="text-3xl font-bold text-text-primary">{s.name}</h2>
+                  <p className="text-lg text-text-secondary mt-1">{s.branch}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-4xl font-black text-accent-amber">{s.score} pts</div>
+                <div className="text-lg text-accent-green mt-1">
+                  {s.correct}/{s.total} Correct {s.streak >= 2 && <span className="ml-2">🔥 Streak</span>}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   // ── FINAL LEADERBOARD VIEW ──
   if (showFinalBoard) {
@@ -550,6 +620,19 @@ export default function PresenterPage() {
             {allResults.length} / {totalResumes} completed
           </span>
         </div>
+      </div>
+
+      {/* Floating Emojis */}
+      <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+        {emojis.map((em) => (
+          <div
+            key={em.id}
+            className="absolute bottom-0 text-5xl animate-float-up"
+            style={{ left: `${Math.random() * 80 + 10}%` }}
+          >
+            {em.emoji}
+          </div>
+        ))}
       </div>
     </div>
   );

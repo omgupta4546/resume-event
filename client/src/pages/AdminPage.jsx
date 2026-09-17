@@ -288,6 +288,15 @@ export default function AdminPage() {
               ↺ Reset
             </button>
           </div>
+
+          <div className="mt-4">
+            <button
+              onClick={() => socket.emit('show_leaderboard')}
+              className="admin-btn bg-accent-purple text-white w-full animate-pulse-glow"
+            >
+              🏆 Show Leaderboard on Projector
+            </button>
+          </div>
         </div>
 
         {/* Set Correct Answer */}
