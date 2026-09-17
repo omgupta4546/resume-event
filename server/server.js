@@ -225,6 +225,14 @@ io.on('connection', (socket) => {
     io.to('control').emit('correct_option_updated', { correctOption: option });
   });
 
+  // ── Add Time ──
+  socket.on('add_time', ({ amount }) => {
+    if (socket.data.role !== 'admin') return;
+    if (!state.pollActive) return;
+    state.timeRemaining += amount;
+    state.duration += amount; // Optional: increases total progress bar time too
+  });
+
   // ── Disconnect ──
   socket.on('disconnect', () => {
     if (socket.data.role === 'student') {

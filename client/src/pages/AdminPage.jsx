@@ -10,6 +10,7 @@ export default function AdminPage() {
   const [votes, setVotes] = useState({ accept: 0, reject: 0 });
   const [connectedStudents, setConnectedStudents] = useState(0);
   const [correctOption, setCorrectOption] = useState(null);
+  const [customDuration, setCustomDuration] = useState(45);
   const [logs, setLogs] = useState([]);
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -229,13 +230,13 @@ export default function AdminPage() {
           <h2 className="text-sm font-bold uppercase tracking-wider text-text-secondary mb-4">
             Poll Controls
           </h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 mb-4">
             <button
-              onClick={() => socket.emit('start_poll', { duration: 15 })}
+              onClick={() => socket.emit('start_poll', { duration: 60 })}
               disabled={pollActive}
               className="admin-btn bg-accent-blue text-white disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              ▶ Start 15s
+              ▶ Start 60s
             </button>
             <button
               onClick={() => socket.emit('start_poll', { duration: 30 })}
@@ -243,6 +244,35 @@ export default function AdminPage() {
               className="admin-btn bg-accent-purple text-white disabled:opacity-30 disabled:cursor-not-allowed"
             >
               ▶ Start 30s
+            </button>
+          </div>
+          
+          <div className="flex gap-3 mb-4">
+            <input 
+              type="number" 
+              value={customDuration}
+              onChange={(e) => setCustomDuration(Number(e.target.value))}
+              min="1"
+              max="300"
+              className="w-24 px-3 py-2 rounded-xl bg-dark-700 border border-glass-border text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue"
+              disabled={pollActive}
+            />
+            <button
+              onClick={() => socket.emit('start_poll', { duration: customDuration })}
+              disabled={pollActive}
+              className="admin-btn bg-dark-600 text-white disabled:opacity-30 disabled:cursor-not-allowed flex-1"
+            >
+              ▶ Start Custom ({customDuration}s)
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <button
+              onClick={() => socket.emit('add_time', { amount: 10 })}
+              disabled={!pollActive}
+              className="admin-btn bg-accent-green text-dark-900 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              +10s
             </button>
             <button
               onClick={() => socket.emit('end_poll')}
