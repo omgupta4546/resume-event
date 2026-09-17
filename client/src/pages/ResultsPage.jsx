@@ -40,173 +40,165 @@ export default function ResultsPage() {
     };
   }, []);
 
-  const totalAccepts = allResults.reduce((s, r) => s + r.accept, 0);
-  const totalRejects = allResults.reduce((s, r) => s + r.reject, 0);
-  const totalAllVotes = totalAccepts + totalRejects;
-  const acceptedCount = allResults.filter(r => r.accept > r.reject).length;
-  const rejectedCount = allResults.filter(r => r.reject > r.accept).length;
+  // Calculate Leaderboard
+  const studentScores = {};
+  let totalQuestionsWithAnswers = 0;
+
+  allResults.forEach((poll) => {
+    if (poll.correctOption === 'accept' || poll.correctOption === 'reject') {
+      totalQuestionsWithAnswers++;
+      if (poll.voters && Array.isArray(poll.voters)) {
+        poll.voters.forEach((voter) => {
+          const key = `${voter.name.trim().toLowerCase()}|${voter.branch.trim().toLowerCase()}`;
+          if (!studentScores[key]) {
+            studentScores[key] = {
+              name: voter.name,
+              branch: voter.branch,
+              score: 0,
+              totalAttempted: 0,
+            };
+          }
+          studentScores[key].totalAttempted++;
+          if (voter.vote === poll.correctOption) {
+            studentScores[key].score++;
+          }
+        });
+      }
+    }
+  });
+
+  const leaderboard = Object.values(studentScores).sort((a, b) => b.score - a.score);
+  const top3 = leaderboard.slice(0, 3);
+  const others = leaderboard.slice(3);
 
   return (
     <div className="min-h-screen bg-dark-900">
-      <div className="max-w-5xl mx-auto p-6 space-y-6">
+      <div className="max-w-5xl mx-auto p-6 space-y-8">
         {/* Header */}
-        <div className="text-center pt-4 pb-2">
-          <span className="text-5xl block mb-3">🏆</span>
-          <h1 className="text-3xl font-extrabold tracking-tight text-text-primary">
-            Final Results — All Resumes
+        <div className="text-center pt-8 pb-4">
+          <span className="text-6xl block mb-4 animate-pulse-glow">🏆</span>
+          <h1 className="text-4xl font-extrabold tracking-tight text-text-primary">
+            Student Leaderboard
           </h1>
-          <p className="text-text-secondary mt-2">
-            {allResults.length} of {totalResumes} resumes polled
+          <p className="text-text-secondary mt-2 text-lg">
+            {allResults.length} of {totalResumes} Resumes Completed • {totalQuestionsWithAnswers} Valid Questions
           </p>
         </div>
 
-        {/* Summary stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="glass-card p-4 text-center">
-            <span className="text-3xl font-black text-text-primary">{allResults.length}</span>
-            <span className="block text-xs text-text-secondary mt-1">Polled</span>
+        {loading ? (
+          <div className="text-center py-16 text-text-secondary">
+            <span className="text-4xl block mb-3 animate-pulse-glow">⏳</span>
+            <p>Loading leaderboard...</p>
           </div>
-          <div className="glass-card p-4 text-center">
-            <span className="text-3xl font-black text-accent-green">{totalAccepts}</span>
-            <span className="block text-xs text-text-secondary mt-1">Total Accepts</span>
+        ) : leaderboard.length === 0 ? (
+          <div className="text-center py-16 text-text-secondary glass-card">
+            <span className="text-5xl block mb-4">📭</span>
+            <p className="text-lg font-semibold">No valid data yet</p>
+            <p className="text-sm mt-1">Start voting and ensure the admin sets the "Correct Answer" to see the leaderboard.</p>
           </div>
-          <div className="glass-card p-4 text-center">
-            <span className="text-3xl font-black text-accent-red">{totalRejects}</span>
-            <span className="block text-xs text-text-secondary mt-1">Total Rejects</span>
-          </div>
-          <div className="glass-card p-4 text-center">
-            <span className="text-3xl font-black text-accent-green">{acceptedCount}</span>
-            <span className="block text-xs text-text-secondary mt-1">✅ Accepted</span>
-          </div>
-          <div className="glass-card p-4 text-center">
-            <span className="text-3xl font-black text-accent-red">{rejectedCount}</span>
-            <span className="block text-xs text-text-secondary mt-1">❌ Rejected</span>
-          </div>
-        </div>
-
-        {/* Grand total bar */}
-        {totalAllVotes > 0 && (
-          <div className="glass-card p-5">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-text-secondary mb-3">
-              Overall Verdict
-            </h2>
-            <div className="flex items-center justify-between text-sm mb-2">
-              <span className="text-accent-green font-bold text-lg">
-                {totalAccepts} Accepts ({Math.round((totalAccepts / totalAllVotes) * 100)}%)
-              </span>
-              <span className="text-text-secondary font-semibold">{totalAllVotes} total votes</span>
-              <span className="text-accent-red font-bold text-lg">
-                {totalRejects} Rejects ({Math.round((totalRejects / totalAllVotes) * 100)}%)
-              </span>
-            </div>
-            <div className="w-full h-5 bg-dark-700 rounded-full overflow-hidden flex">
-              <div
-                className="h-full bg-gradient-to-r from-accent-green to-emerald-400 transition-all duration-500"
-                style={{ width: `${(totalAccepts / totalAllVotes) * 100}%` }}
-              />
-              <div
-                className="h-full bg-gradient-to-r from-rose-500 to-accent-red transition-all duration-500"
-                style={{ width: `${(totalRejects / totalAllVotes) * 100}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Individual results */}
-        <div className="space-y-3">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-text-secondary">
-            Individual Results
-          </h2>
-
-          {loading ? (
-            <div className="text-center py-16 text-text-secondary">
-              <span className="text-4xl block mb-3 animate-pulse-glow">⏳</span>
-              <p>Loading results...</p>
-            </div>
-          ) : allResults.length === 0 ? (
-            <div className="text-center py-16 text-text-secondary">
-              <span className="text-5xl block mb-4">📭</span>
-              <p className="text-lg font-semibold">No polls completed yet</p>
-              <p className="text-sm mt-1">Start voting on resumes to see results here</p>
-            </div>
-          ) : (
-            allResults.map((r, i) => {
-              const rTotal = r.accept + r.reject;
-              const rAccPct = rTotal > 0 ? (r.accept / rTotal) * 100 : 0;
-              const rRejPct = rTotal > 0 ? (r.reject / rTotal) * 100 : 0;
-              const verdict = r.accept > r.reject ? 'ACCEPTED' : r.reject > r.accept ? 'REJECTED' : 'TIE';
-              const verdictColor = r.accept > r.reject ? 'text-accent-green' : r.reject > r.accept ? 'text-accent-red' : 'text-accent-amber';
-              const verdictIcon = r.accept > r.reject ? '✅' : r.reject > r.accept ? '❌' : '🤝';
-              const verdictBg = r.accept > r.reject
-                ? 'bg-accent-green/10 border-accent-green/20'
-                : r.reject > r.accept
-                ? 'bg-accent-red/10 border-accent-red/20'
-                : 'bg-accent-amber/10 border-accent-amber/20';
-
-              return (
-                <div
-                  key={r.currentResumeIndex}
-                  className="glass-card p-5 flex items-center gap-5 animate-slide-up"
-                  style={{ animationDelay: `${i * 80}ms` }}
-                >
-                  {/* Resume number */}
-                  <div className="w-14 h-14 rounded-xl bg-dark-600 flex items-center justify-center shrink-0">
-                    <span className="text-xl font-black text-text-primary">
-                      #{r.currentResumeIndex + 1}
-                    </span>
-                  </div>
-
-                  {/* Bar */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-text-primary text-lg">
-                        Resume {r.currentResumeIndex + 1}
-                      </span>
-                      <span className="text-sm text-text-secondary">{rTotal} votes</span>
-                    </div>
-                    <div className="w-full h-7 bg-dark-700 rounded-full overflow-hidden flex">
-                      {rTotal > 0 && (
-                        <>
-                          <div
-                            className="h-full bg-gradient-to-r from-accent-green to-emerald-400 flex items-center justify-center transition-all duration-700"
-                            style={{ width: `${rAccPct}%` }}
-                          >
-                            {rAccPct > 15 && (
-                              <span className="text-xs font-bold text-dark-900">
-                                {r.accept} ({Math.round(rAccPct)}%)
-                              </span>
-                            )}
-                          </div>
-                          <div
-                            className="h-full bg-gradient-to-r from-rose-500 to-accent-red flex items-center justify-center transition-all duration-700"
-                            style={{ width: `${rRejPct}%` }}
-                          >
-                            {rRejPct > 15 && (
-                              <span className="text-xs font-bold text-white">
-                                {r.reject} ({Math.round(rRejPct)}%)
-                              </span>
-                            )}
-                          </div>
-                        </>
-                      )}
+        ) : (
+          <>
+            {/* Top 3 Podium */}
+            {top3.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 pt-4">
+                {top3[1] && (
+                  <div className="glass-card p-6 flex flex-col items-center justify-end border-t-4 border-t-slate-400 transform translate-y-4">
+                    <span className="text-4xl mb-2">🥈</span>
+                    <h3 className="text-xl font-bold text-text-primary">{top3[1].name}</h3>
+                    <p className="text-text-secondary text-sm mb-4">{top3[1].branch}</p>
+                    <div className="bg-dark-600 px-4 py-2 rounded-lg w-full text-center">
+                      <span className="font-bold text-lg text-slate-300">{top3[1].score}</span> / {totalQuestionsWithAnswers}
                     </div>
                   </div>
-
-                  {/* Verdict */}
-                  <div className={`shrink-0 px-5 py-2.5 rounded-xl border font-bold text-sm ${verdictBg} ${verdictColor}`}>
-                    {verdictIcon} {verdict}
+                )}
+                
+                {top3[0] && (
+                  <div className="glass-card p-6 flex flex-col items-center justify-end border-t-4 border-t-yellow-400 bg-gradient-to-b from-yellow-400/10 to-transparent">
+                    <span className="text-5xl mb-2 animate-pulse">👑</span>
+                    <h3 className="text-2xl font-bold text-text-primary">{top3[0].name}</h3>
+                    <p className="text-text-secondary text-sm mb-4">{top3[0].branch}</p>
+                    <div className="bg-dark-600 px-4 py-2 rounded-lg w-full text-center">
+                      <span className="font-bold text-xl text-yellow-400">{top3[0].score}</span> / {totalQuestionsWithAnswers}
+                    </div>
                   </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+                )}
+                
+                {top3[2] && (
+                  <div className="glass-card p-6 flex flex-col items-center justify-end border-t-4 border-t-amber-600 transform translate-y-8">
+                    <span className="text-4xl mb-2">🥉</span>
+                    <h3 className="text-xl font-bold text-text-primary">{top3[2].name}</h3>
+                    <p className="text-text-secondary text-sm mb-4">{top3[2].branch}</p>
+                    <div className="bg-dark-600 px-4 py-2 rounded-lg w-full text-center">
+                      <span className="font-bold text-lg text-amber-500">{top3[2].score}</span> / {totalQuestionsWithAnswers}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
-        {/* Pending resumes */}
-        {allResults.length < totalResumes && allResults.length > 0 && (
-          <div className="glass-card p-4 text-center text-text-secondary text-sm">
-            ⏳ {totalResumes - allResults.length} resume{totalResumes - allResults.length > 1 ? 's' : ''} still pending
-          </div>
+            {/* Rest of the Leaderboard Table */}
+            {others.length > 0 && (
+              <div className="glass-card overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-dark-600/50 border-b border-glass-border">
+                      <th className="p-4 text-text-secondary font-semibold uppercase text-xs tracking-wider">Rank</th>
+                      <th className="p-4 text-text-secondary font-semibold uppercase text-xs tracking-wider">Student Name</th>
+                      <th className="p-4 text-text-secondary font-semibold uppercase text-xs tracking-wider">Branch</th>
+                      <th className="p-4 text-text-secondary font-semibold uppercase text-xs tracking-wider text-right">Score</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-glass-border">
+                    {others.map((student, i) => (
+                      <tr key={i} className="hover:bg-dark-600/30 transition-colors">
+                        <td className="p-4 text-text-secondary font-bold">#{i + 4}</td>
+                        <td className="p-4 text-text-primary font-semibold">{student.name}</td>
+                        <td className="p-4 text-text-secondary">{student.branch}</td>
+                        <td className="p-4 text-right">
+                          <span className="font-bold text-text-primary">{student.score}</span>
+                          <span className="text-text-secondary text-sm"> / {totalQuestionsWithAnswers}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Questions Breakdown */}
+            <div className="mt-12 space-y-4">
+              <h2 className="text-lg font-bold text-text-primary uppercase tracking-wider mb-4">Question Breakdown</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {allResults.map((poll, i) => {
+                  const rTotal = poll.voters?.length || 0;
+                  const correctVoters = poll.voters?.filter(v => v.vote === poll.correctOption)?.length || 0;
+                  const accuracy = rTotal > 0 ? Math.round((correctVoters / rTotal) * 100) : 0;
+                  
+                  return (
+                    <div key={i} className="glass-card p-5 border-l-4 border-l-accent-blue">
+                      <h3 className="font-bold text-text-primary mb-1">{poll.resumeLabel}</h3>
+                      <p className="text-sm text-text-secondary mb-3">
+                        Correct Answer: <span className={`font-bold uppercase ${poll.correctOption === 'accept' ? 'text-accent-green' : poll.correctOption === 'reject' ? 'text-accent-red' : 'text-text-secondary'}`}>
+                          {poll.correctOption || 'Not Set'}
+                        </span>
+                      </p>
+                      
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="text-text-secondary">Accuracy</span>
+                        <span className="font-bold text-text-primary">{accuracy}%</span>
+                      </div>
+                      <div className="w-full h-2 bg-dark-700 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-accent-blue transition-all"
+                          style={{ width: `${accuracy}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

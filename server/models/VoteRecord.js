@@ -42,6 +42,11 @@ const voteRecordSchema = new mongoose.Schema({
     type: Number,
     default: 30,
   },
+  correctOption: {
+    type: String,
+    enum: ['accept', 'reject', null],
+    default: null,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

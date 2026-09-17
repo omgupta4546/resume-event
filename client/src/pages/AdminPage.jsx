@@ -9,6 +9,7 @@ export default function AdminPage() {
   const [duration, setDuration] = useState(30);
   const [votes, setVotes] = useState({ accept: 0, reject: 0 });
   const [connectedStudents, setConnectedStudents] = useState(0);
+  const [correctOption, setCorrectOption] = useState(null);
   const [logs, setLogs] = useState([]);
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -30,6 +31,7 @@ export default function AdminPage() {
       setDuration(data.duration);
       setVotes(data.votes);
       setConnectedStudents(data.connectedStudents || 0);
+      setCorrectOption(data.correctOption || null);
       addLog('Synced with server');
     };
 
@@ -67,7 +69,13 @@ export default function AdminPage() {
       setPollActive(false);
       setTimeRemaining(0);
       setVotes({ accept: 0, reject: 0 });
+      setCorrectOption(null);
       addLog('Poll reset');
+    };
+
+    const onCorrectOptionUpdated = (data) => {
+      setCorrectOption(data.correctOption);
+      addLog(`Correct answer set to: ${data.correctOption}`);
     };
 
     const onStatusUpdate = (data) => {
@@ -82,6 +90,7 @@ export default function AdminPage() {
     socket.on('poll_ended', onPollEnded);
     socket.on('poll_reset', onPollReset);
     socket.on('status_update', onStatusUpdate);
+    socket.on('correct_option_updated', onCorrectOptionUpdated);
 
     return () => {
       socket.off('sync_state', onSyncState);
@@ -92,6 +101,7 @@ export default function AdminPage() {
       socket.off('poll_ended', onPollEnded);
       socket.off('poll_reset', onPollReset);
       socket.off('status_update', onStatusUpdate);
+      socket.off('correct_option_updated', onCorrectOptionUpdated);
     };
   }, []);
 
@@ -248,6 +258,47 @@ export default function AdminPage() {
               ↺ Reset
             </button>
           </div>
+        </div>
+
+        {/* Set Correct Answer */}
+        <div className="glass-card p-6 border-l-4 border-l-accent-purple">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-text-secondary">
+              Set Correct Answer (Quiz Mode)
+            </h2>
+            {correctOption && (
+              <span className={`text-xs font-bold px-2 py-1 rounded ${correctOption === 'accept' ? 'bg-accent-green/20 text-accent-green' : 'bg-accent-red/20 text-accent-red'}`}>
+                Current: {correctOption.toUpperCase()}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => socket.emit('set_correct_option', { option: 'accept' })}
+              disabled={!pollActive}
+              className={`admin-btn font-bold transition-all ${
+                correctOption === 'accept' 
+                  ? 'bg-accent-green text-dark-900 border-2 border-white' 
+                  : 'bg-dark-600 text-accent-green hover:bg-dark-500'
+              } disabled:opacity-30 disabled:cursor-not-allowed`}
+            >
+              ✅ Set ACCEPT as Correct
+            </button>
+            <button
+              onClick={() => socket.emit('set_correct_option', { option: 'reject' })}
+              disabled={!pollActive}
+              className={`admin-btn font-bold transition-all ${
+                correctOption === 'reject' 
+                  ? 'bg-accent-red text-white border-2 border-white' 
+                  : 'bg-dark-600 text-accent-red hover:bg-dark-500'
+              } disabled:opacity-30 disabled:cursor-not-allowed`}
+            >
+              ❌ Set REJECT as Correct
+            </button>
+          </div>
+          <p className="text-xs text-text-secondary mt-3">
+            * You can only set the correct answer while the poll is active. Students won't see this.
+          </p>
         </div>
 
         {/* Final Results Link */}

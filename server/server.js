@@ -18,6 +18,8 @@ const RESUMES = [
   '/resumes/resume4.png',
   '/resumes/resume5.png',
   '/resumes/resume6.png',
+  '/resumes/resume7.png',
+  '/resumes/resume8.png',
 ];
 
 // ─── Express + Socket.io Setup ───────────────────────────────────
@@ -73,6 +75,7 @@ let state = {
   votes: { accept: 0, reject: 0 },
   votedUsers: new Map(),    // key: "name|branch" → vote value
   connectedStudents: 0,
+  correctOption: null,
 };
 
 // In-memory results history (survives without MongoDB)
@@ -85,6 +88,7 @@ function resetPollState() {
   state.timeRemaining = 0;
   state.votes = { accept: 0, reject: 0 };
   state.votedUsers = new Map();
+  state.correctOption = null;
   if (timerInterval) {
     clearInterval(timerInterval);
     timerInterval = null;
@@ -121,6 +125,7 @@ io.on('connection', (socket) => {
     votes: state.votes,
     totalResumes: RESUMES.length,
     connectedStudents: state.connectedStudents,
+    correctOption: state.correctOption,
     allResults,
   });
 
@@ -212,6 +217,14 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ── Set Correct Option (Admin Only) ──
+  socket.on('set_correct_option', ({ option }) => {
+    if (socket.data.role !== 'admin') return;
+    if (option !== 'accept' && option !== 'reject' && option !== null) return;
+    state.correctOption = option;
+    io.to('control').emit('correct_option_updated', { correctOption: option });
+  });
+
   // ── Disconnect ──
   socket.on('disconnect', () => {
     if (socket.data.role === 'student') {
@@ -239,12 +252,24 @@ async function endPoll() {
   state.pollActive = false;
   state.timeRemaining = 0;
 
+  const voters = [];
+  for (const [, v] of state.votedUsers) {
+    voters.push({
+      name: v.name,
+      year: v.year,
+      branch: v.branch,
+      vote: v.vote,
+    });
+  }
+
   const finalTally = {
     accept: state.votes.accept,
     reject: state.votes.reject,
     totalVotes: state.votes.accept + state.votes.reject,
     currentResumeIndex: state.currentResumeIndex,
     resumeLabel: `Resume ${state.currentResumeIndex + 1}`,
+    correctOption: state.correctOption,
+    voters: voters,
   };
 
   // Store in memory for the final leaderboard
@@ -266,16 +291,6 @@ async function endPoll() {
 
   // ── Persist to MongoDB ──
   try {
-    const voters = [];
-    for (const [, v] of state.votedUsers) {
-      voters.push({
-        name: v.name,
-        year: v.year,
-        branch: v.branch,
-        vote: v.vote,
-      });
-    }
-
     await VoteRecord.create({
       resumeIndex: state.currentResumeIndex,
       resumeLabel: `Resume ${state.currentResumeIndex + 1}`,
@@ -284,6 +299,7 @@ async function endPoll() {
       totalVoters: voters.length,
       voters,
       duration: state.duration,
+      correctOption: state.correctOption,
     });
     console.log(`💾 Saved poll results for Resume #${state.currentResumeIndex + 1}`);
   } catch (err) {
