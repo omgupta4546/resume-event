@@ -10,6 +10,10 @@ export default function AdminPage() {
   const [votes, setVotes] = useState({ accept: 0, reject: 0 });
   const [connectedStudents, setConnectedStudents] = useState(0);
   const [logs, setLogs] = useState([]);
+  
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [authError, setAuthError] = useState('');
 
   const addLog = (msg) => {
     setLogs((prev) => [{ time: new Date().toLocaleTimeString(), msg }, ...prev].slice(0, 50));
@@ -92,6 +96,53 @@ export default function AdminPage() {
   }, []);
 
   const totalVotes = votes.accept + votes.reject;
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    const correctPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'ptp26';
+    if (passwordInput === correctPassword) {
+      setIsAuthenticated(true);
+      setAuthError('');
+    } else {
+      setAuthError('Incorrect password');
+      setPasswordInput('');
+    }
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-dark-900 flex items-center justify-center p-6">
+        <form onSubmit={handleLogin} className="glass-card p-8 w-full max-w-sm animate-slide-up">
+          <div className="text-center mb-6">
+            <span className="text-4xl mb-3 block">🔒</span>
+            <h1 className="text-2xl font-bold text-text-primary">Admin Access</h1>
+            <p className="text-text-secondary text-sm mt-1">Enter password to continue</p>
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <input
+                type="password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                placeholder="Enter admin password"
+                className="w-full px-4 py-3 rounded-xl bg-dark-700 border border-glass-border text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue/50"
+                autoFocus
+              />
+              {authError && <p className="text-accent-red text-xs mt-2 text-center animate-shake">{authError}</p>}
+            </div>
+            
+            <button
+              type="submit"
+              className="w-full py-3 rounded-xl bg-accent-blue font-bold text-white transition-all hover:brightness-110 active:scale-95"
+            >
+              Unlock
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-dark-900 p-6">
