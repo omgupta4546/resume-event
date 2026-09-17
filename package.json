@@ -1,0 +1,24 @@
+{
+  "name": "resume-vote",
+  "version": "1.0.0",
+  "description": "Live HR Resume Voting Application for college events",
+  "main": "server/server.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "node server/server.js",
+    "dev:client": "cd client && npm run dev",
+    "build:client": "cd client && npm run build",
+    "start": "node server/server.js",
+    "setup": "npm install && cd client && npm install && cd .. && npm run build:client"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "mongoose": "^8.6.0",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}

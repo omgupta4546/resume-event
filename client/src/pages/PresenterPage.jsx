@@ -1,0 +1,556 @@
+import { useState, useEffect, useCallback } from 'react';
+import socket from '../socket';
+
+export default function PresenterPage() {
+  const [resumeIndex, setResumeIndex] = useState(0);
+  const [totalResumes, setTotalResumes] = useState(10);
+  const [pollActive, setPollActive] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [duration, setDuration] = useState(30);
+  const [votes, setVotes] = useState({ accept: 0, reject: 0 });
+  const [connectedStudents, setConnectedStudents] = useState(0);
+  const [pollEnded, setPollEnded] = useState(false);
+  const [finalResult, setFinalResult] = useState(null);
+  const [showResultOverlay, setShowResultOverlay] = useState(false);
+  const [allResults, setAllResults] = useState([]);
+  const [showFinalBoard, setShowFinalBoard] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
+
+  useEffect(() => {
+    socket.emit('register_presenter');
+
+    const onSyncState = (data) => {
+      setResumeIndex(data.currentResumeIndex);
+      setTotalResumes(data.totalResumes);
+      setPollActive(data.pollActive);
+      setTimeRemaining(data.timeRemaining);
+      setDuration(data.duration);
+      setVotes(data.votes);
+      setConnectedStudents(data.connectedStudents || 0);
+      if (data.allResults) setAllResults(data.allResults);
+    };
+
+    const onResumeChanged = ({ currentResumeIndex, totalResumes: total }) => {
+      setResumeIndex(currentResumeIndex);
+      setTotalResumes(total);
+      setPollEnded(false);
+      setFinalResult(null);
+      setShowResultOverlay(false);
+      setVotes({ accept: 0, reject: 0 });
+    };
+
+    const onPollStarted = ({ duration: dur }) => {
+      setPollActive(true);
+      setDuration(dur);
+      setTimeRemaining(dur);
+      setVotes({ accept: 0, reject: 0 });
+      setPollEnded(false);
+      setFinalResult(null);
+      setShowResultOverlay(false);
+      setShowFinalBoard(false);
+    };
+
+    const onTimerTick = ({ timeRemaining: t }) => {
+      setTimeRemaining(t);
+    };
+
+    const onLiveTally = (data) => {
+      setVotes({ accept: data.accept, reject: data.reject });
+    };
+
+    const onPollEnded = (data) => {
+      setPollActive(false);
+      setTimeRemaining(0);
+      setPollEnded(true);
+      setFinalResult(data);
+      setVotes({ accept: data.accept, reject: data.reject });
+      // Show the big result overlay
+      setShowResultOverlay(true);
+    };
+
+    const onPollReset = () => {
+      setPollActive(false);
+      setTimeRemaining(0);
+      setVotes({ accept: 0, reject: 0 });
+      setPollEnded(false);
+      setFinalResult(null);
+      setShowResultOverlay(false);
+    };
+
+    const onStatusUpdate = (data) => {
+      setConnectedStudents(data.connectedStudents);
+    };
+
+    const onAllResults = (data) => {
+      setAllResults(data.results);
+    };
+
+    socket.on('sync_state', onSyncState);
+    socket.on('resume_changed', onResumeChanged);
+    socket.on('poll_started', onPollStarted);
+    socket.on('timer_tick', onTimerTick);
+    socket.on('live_tally', onLiveTally);
+    socket.on('poll_ended', onPollEnded);
+    socket.on('poll_reset', onPollReset);
+    socket.on('status_update', onStatusUpdate);
+    socket.on('all_results', onAllResults);
+
+    return () => {
+      socket.off('sync_state', onSyncState);
+      socket.off('resume_changed', onResumeChanged);
+      socket.off('poll_started', onPollStarted);
+      socket.off('timer_tick', onTimerTick);
+      socket.off('live_tally', onLiveTally);
+      socket.off('poll_ended', onPollEnded);
+      socket.off('poll_reset', onPollReset);
+      socket.off('status_update', onStatusUpdate);
+      socket.off('all_results', onAllResults);
+    };
+  }, []);
+
+  // ── Keyboard shortcuts ──
+  const handleKeyDown = useCallback(
+    (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      switch (e.key) {
+        case 'ArrowRight':
+          e.preventDefault();
+          if (!pollActive) {
+            setShowResultOverlay(false);
+            setShowFinalBoard(false);
+            socket.emit('change_resume', { index: resumeIndex + 1 });
+          }
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          if (!pollActive) {
+            setShowResultOverlay(false);
+            setShowFinalBoard(false);
+            socket.emit('change_resume', { index: resumeIndex - 1 });
+          }
+          break;
+        case ' ':
+          e.preventDefault();
+          if (showResultOverlay) {
+            setShowResultOverlay(false);
+          } else if (!pollActive) {
+            socket.emit('start_poll', { duration: 30 });
+          }
+          break;
+        case 'r':
+        case 'R':
+          e.preventDefault();
+          setShowResultOverlay(false);
+          socket.emit('reset_poll');
+          break;
+        case 'f':
+        case 'F':
+          e.preventDefault();
+          // Toggle final leaderboard
+          socket.emit('request_all_results');
+          setShowFinalBoard((prev) => !prev);
+          break;
+        case 'z':
+        case 'Z':
+          e.preventDefault();
+          setIsZoomed((prev) => !prev);
+          break;
+        case 'Escape':
+          e.preventDefault();
+          setShowResultOverlay(false);
+          setShowFinalBoard(false);
+          break;
+        default:
+          break;
+      }
+    },
+    [pollActive, resumeIndex, showResultOverlay]
+  );
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
+  // ── Derived values ──
+  const totalVotes = votes.accept + votes.reject;
+  const acceptPct = totalVotes > 0 ? (votes.accept / totalVotes) * 100 : 0;
+  const rejectPct = totalVotes > 0 ? (votes.reject / totalVotes) * 100 : 0;
+  const progressPct = duration > 0 ? (timeRemaining / duration) * 100 : 0;
+  const isUrgent = timeRemaining <= 5 && timeRemaining > 0;
+
+  const resumeImagePath = `/resumes/resume${resumeIndex + 1}.png`;
+
+  // ── FINAL LEADERBOARD VIEW ──
+  if (showFinalBoard) {
+    const totalAccepts = allResults.reduce((s, r) => s + r.accept, 0);
+    const totalRejects = allResults.reduce((s, r) => s + r.reject, 0);
+    const totalAllVotes = totalAccepts + totalRejects;
+
+    return (
+      <div className="h-screen w-screen bg-dark-900 flex flex-col overflow-hidden select-none">
+        {/* Header */}
+        <div className="flex items-center justify-between px-8 py-4 bg-dark-800/80 border-b border-glass-border">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">🏆</span>
+            <h1 className="text-2xl font-extrabold tracking-tight">Final Results — All Resumes</h1>
+          </div>
+          <div className="flex items-center gap-4 text-sm text-text-secondary">
+            <span>{allResults.length} / {totalResumes} polled</span>
+            <span className="text-text-secondary/40">Press F or Esc to go back</span>
+          </div>
+        </div>
+
+        {/* Summary stats */}
+        <div className="flex gap-4 px-8 pt-6 pb-4">
+          <div className="glass-card px-6 py-3 text-center">
+            <span className="text-3xl font-black text-text-primary">{allResults.length}</span>
+            <span className="block text-xs text-text-secondary mt-1">Resumes Polled</span>
+          </div>
+          <div className="glass-card px-6 py-3 text-center">
+            <span className="text-3xl font-black text-accent-green">{totalAccepts}</span>
+            <span className="block text-xs text-text-secondary mt-1">Total Accepts</span>
+          </div>
+          <div className="glass-card px-6 py-3 text-center">
+            <span className="text-3xl font-black text-accent-red">{totalRejects}</span>
+            <span className="block text-xs text-text-secondary mt-1">Total Rejects</span>
+          </div>
+          <div className="glass-card px-6 py-3 text-center">
+            <span className="text-3xl font-black text-accent-blue">{totalAllVotes}</span>
+            <span className="block text-xs text-text-secondary mt-1">Total Votes</span>
+          </div>
+        </div>
+
+        {/* Results table */}
+        <div className="flex-1 overflow-y-auto px-8 pb-6">
+          {allResults.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center h-64">
+              <div className="text-center text-text-secondary">
+                <span className="text-5xl block mb-4">📭</span>
+                <p className="text-lg font-semibold">No polls completed yet</p>
+                <p className="text-sm mt-1">Start voting on resumes to see results here</p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {allResults.map((r, i) => {
+                const rTotal = r.accept + r.reject;
+                const rAccPct = rTotal > 0 ? (r.accept / rTotal) * 100 : 0;
+                const rRejPct = rTotal > 0 ? (r.reject / rTotal) * 100 : 0;
+                const verdict = r.accept > r.reject ? 'ACCEPTED' : r.reject > r.accept ? 'REJECTED' : 'TIE';
+                const verdictColor = r.accept > r.reject ? 'text-accent-green' : r.reject > r.accept ? 'text-accent-red' : 'text-accent-amber';
+                const verdictIcon = r.accept > r.reject ? '✅' : r.reject > r.accept ? '❌' : '🤝';
+                const verdictBg = r.accept > r.reject ? 'bg-accent-green/10 border-accent-green/20' : r.reject > r.accept ? 'bg-accent-red/10 border-accent-red/20' : 'bg-accent-amber/10 border-accent-amber/20';
+
+                return (
+                  <div
+                    key={r.currentResumeIndex}
+                    className="glass-card p-4 flex items-center gap-6 animate-slide-up"
+                    style={{ animationDelay: `${i * 60}ms` }}
+                  >
+                    {/* Resume number */}
+                    <div className="w-14 h-14 rounded-xl bg-dark-600 flex items-center justify-center shrink-0">
+                      <span className="text-xl font-black text-text-primary">
+                        {r.currentResumeIndex + 1}
+                      </span>
+                    </div>
+
+                    {/* Label + bar */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-text-primary">
+                          Resume {r.currentResumeIndex + 1}
+                        </span>
+                        <span className="text-sm text-text-secondary">{rTotal} votes</span>
+                      </div>
+                      {/* Horizontal bar */}
+                      <div className="w-full h-6 bg-dark-700 rounded-full overflow-hidden flex">
+                        {rTotal > 0 && (
+                          <>
+                            <div
+                              className="h-full bg-gradient-to-r from-accent-green to-emerald-400 flex items-center justify-center transition-all duration-500"
+                              style={{ width: `${rAccPct}%` }}
+                            >
+                              {rAccPct > 12 && (
+                                <span className="text-[11px] font-bold text-dark-900">
+                                  {r.accept} ({Math.round(rAccPct)}%)
+                                </span>
+                              )}
+                            </div>
+                            <div
+                              className="h-full bg-gradient-to-r from-rose-500 to-accent-red flex items-center justify-center transition-all duration-500"
+                              style={{ width: `${rRejPct}%` }}
+                            >
+                              {rRejPct > 12 && (
+                                <span className="text-[11px] font-bold text-white">
+                                  {r.reject} ({Math.round(rRejPct)}%)
+                                </span>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Verdict badge */}
+                    <div className={`shrink-0 px-4 py-2 rounded-xl border font-bold text-sm ${verdictBg} ${verdictColor}`}>
+                      {verdictIcon} {verdict}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-screen w-screen flex bg-dark-900 overflow-hidden select-none">
+      {/* ── INDIVIDUAL RESULT OVERLAY ── */}
+      {showResultOverlay && finalResult && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-dark-900/90 backdrop-blur-md animate-fade-in">
+          <div className="text-center animate-slide-up max-w-lg">
+            {/* Big verdict */}
+            <div className="text-8xl mb-6">
+              {finalResult.accept > finalResult.reject
+                ? '✅'
+                : finalResult.reject > finalResult.accept
+                ? '❌'
+                : '🤝'}
+            </div>
+            <h2
+              className={`text-5xl font-black mb-4 ${
+                finalResult.accept > finalResult.reject
+                  ? 'text-accent-green'
+                  : finalResult.reject > finalResult.accept
+                  ? 'text-accent-red'
+                  : 'text-accent-amber'
+              }`}
+            >
+              {finalResult.accept > finalResult.reject
+                ? 'ACCEPTED'
+                : finalResult.reject > finalResult.accept
+                ? 'REJECTED'
+                : 'TIE'}
+            </h2>
+            <p className="text-2xl text-text-secondary mb-8">
+              Resume {finalResult.currentResumeIndex + 1}
+            </p>
+
+            {/* Score cards */}
+            <div className="flex gap-6 justify-center mb-8">
+              <div className="glass-card px-8 py-5 text-center">
+                <span className="text-5xl font-black text-accent-green">{finalResult.accept}</span>
+                <span className="block text-sm text-text-secondary mt-2 uppercase tracking-wider">Accept</span>
+                <span className="block text-lg font-bold text-text-primary mt-1">
+                  {finalResult.totalVotes > 0 ? Math.round((finalResult.accept / finalResult.totalVotes) * 100) : 0}%
+                </span>
+              </div>
+              <div className="glass-card px-8 py-5 text-center">
+                <span className="text-5xl font-black text-accent-red">{finalResult.reject}</span>
+                <span className="block text-sm text-text-secondary mt-2 uppercase tracking-wider">Reject</span>
+                <span className="block text-lg font-bold text-text-primary mt-1">
+                  {finalResult.totalVotes > 0 ? Math.round((finalResult.reject / finalResult.totalVotes) * 100) : 0}%
+                </span>
+              </div>
+            </div>
+
+            {/* Total + hint */}
+            <p className="text-text-secondary text-lg mb-4">
+              {finalResult.totalVotes} total votes
+            </p>
+            <p className="text-text-secondary/40 text-sm">
+              Press → for next resume • Press F for final leaderboard
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Left: Resume Display ── */}
+      <div className="flex-1 flex flex-col relative min-w-0">
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-4 py-2 bg-dark-800/80 border-b border-glass-border">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🗳️</span>
+            <h1 className="text-lg font-bold tracking-tight">Resume Vote</h1>
+          </div>
+          <div className="flex items-center gap-4 text-sm text-text-secondary">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 bg-accent-green rounded-full animate-pulse" />
+              {connectedStudents} online
+            </span>
+            <span className="font-mono text-text-primary">
+              Resume {resumeIndex + 1} / {totalResumes}
+            </span>
+          </div>
+        </div>
+
+        {/* Resume image */}
+        <div className={`flex-1 flex justify-center relative ${isZoomed ? 'overflow-y-auto p-6 items-start' : 'overflow-hidden p-2 items-center'}`}>
+          {/* Background glow */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none fixed">
+            <div className="w-[80%] h-[80%] bg-accent-blue/5 rounded-full blur-[100px]" />
+          </div>
+
+          <div className={`relative z-10 ${isZoomed ? 'w-full' : 'max-h-full max-w-full'}`}>
+            <img
+              key={resumeIndex}
+              src={resumeImagePath}
+              alt={`Resume ${resumeIndex + 1}`}
+              className={`${
+                isZoomed 
+                  ? 'w-full h-auto rounded-none border-none shadow-none' 
+                  : 'h-[calc(100vh-70px)] max-h-full max-w-full w-auto rounded-xl border border-glass-border shadow-2xl'
+              } animate-fade-in object-contain mx-auto`}
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'flex';
+              }}
+            />
+            <div
+              className="hidden items-center justify-center h-[60vh] w-[40vw] glass-card text-text-secondary flex-col gap-4"
+            >
+              <span className="text-6xl">📄</span>
+              <span className="text-lg font-semibold">Resume {resumeIndex + 1}</span>
+              <span className="text-sm">Image not found at {resumeImagePath}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom nav hint */}
+        <div className="flex items-center justify-center gap-6 py-2 text-text-secondary/40 text-xs shrink-0">
+          <span>← Prev</span>
+          <span>Space = Start</span>
+          <span>Z = {isZoomed ? 'Zoom Out' : 'Zoom In'}</span>
+          <span>→ Next</span>
+          <span>R = Reset</span>
+          <span>F = Results</span>
+        </div>
+      </div>
+
+      {/* ── Right: Voting Panel ── */}
+      <div className="w-72 shrink-0 flex flex-col border-l border-glass-border bg-dark-800/50">
+        {/* Timer section */}
+        <div className="flex flex-col items-center justify-center py-6 border-b border-glass-border">
+          {/* SVG Timer Ring */}
+          <div className="relative w-32 h-32">
+            <svg className="timer-ring w-full h-full" viewBox="0 0 120 120">
+              <circle className="timer-ring-track" cx="60" cy="60" r="52" strokeWidth="8" />
+              <circle
+                className="timer-ring-progress"
+                cx="60"
+                cy="60"
+                r="52"
+                strokeWidth="8"
+                stroke={isUrgent ? '#ff1744' : pollActive ? '#448aff' : '#2e2e48'}
+                strokeDasharray={2 * Math.PI * 52}
+                strokeDashoffset={2 * Math.PI * 52 * (1 - progressPct / 100)}
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span
+                className={`text-4xl font-black tabular-nums ${
+                  isUrgent
+                    ? 'text-accent-red animate-countdown-pulse'
+                    : pollActive
+                    ? 'text-text-primary'
+                    : 'text-text-secondary/50'
+                }`}
+              >
+                {timeRemaining}
+              </span>
+              <span className="text-[10px] uppercase tracking-widest text-text-secondary mt-0.5">
+                {pollActive ? 'Voting' : pollEnded ? 'Ended' : 'Ready'}
+              </span>
+            </div>
+          </div>
+
+          {/* Total votes count */}
+          <div className="mt-4 text-center">
+            <span className="text-3xl font-black text-text-primary">{totalVotes}</span>
+            <span className="block text-xs text-text-secondary uppercase tracking-wider mt-1">
+              Total Votes
+            </span>
+          </div>
+        </div>
+
+        {/* Vote bars */}
+        <div className="flex-1 flex gap-4 px-6 py-4">
+          {/* Accept bar */}
+          <div className="flex-1 flex flex-col items-center">
+            <div className="flex-1 w-full bg-dark-700 rounded-lg relative overflow-hidden flex flex-col justify-end">
+              <div
+                className="vote-bar vote-bar-accept w-full"
+                style={{ height: `${acceptPct}%` }}
+              />
+              {/* Count label */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-2xl font-black text-white drop-shadow-lg">
+                  {votes.accept}
+                </span>
+              </div>
+            </div>
+            <div className="mt-3 text-center">
+              <span className="text-xs font-bold uppercase tracking-wider text-accent-green">
+                Accept
+              </span>
+              <span className="block text-lg font-black text-text-primary">
+                {totalVotes > 0 ? Math.round(acceptPct) : 0}%
+              </span>
+            </div>
+          </div>
+
+          {/* Reject bar */}
+          <div className="flex-1 flex flex-col items-center">
+            <div className="flex-1 w-full bg-dark-700 rounded-lg relative overflow-hidden flex flex-col justify-end">
+              <div
+                className="vote-bar vote-bar-reject w-full"
+                style={{ height: `${rejectPct}%` }}
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-2xl font-black text-white drop-shadow-lg">
+                  {votes.reject}
+                </span>
+              </div>
+            </div>
+            <div className="mt-3 text-center">
+              <span className="text-xs font-bold uppercase tracking-wider text-accent-red">
+                Reject
+              </span>
+              <span className="block text-lg font-black text-text-primary">
+                {totalVotes > 0 ? Math.round(rejectPct) : 0}%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Result banner */}
+        {pollEnded && finalResult && !showResultOverlay && (
+          <div
+            className={`mx-4 mb-4 p-4 rounded-xl text-center font-bold text-lg animate-slide-up ${
+              finalResult.accept >= finalResult.reject
+                ? 'bg-accent-green/15 border border-accent-green/30 text-accent-green'
+                : 'bg-accent-red/15 border border-accent-red/30 text-accent-red'
+            }`}
+          >
+            {finalResult.accept > finalResult.reject
+              ? '✅ ACCEPTED'
+              : finalResult.reject > finalResult.accept
+              ? '❌ REJECTED'
+              : '🤝 TIE'}
+          </div>
+        )}
+
+        {/* Completed count */}
+        <div className="px-4 pb-3 text-center">
+          <span className="text-xs text-text-secondary/40">
+            {allResults.length} / {totalResumes} completed
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}

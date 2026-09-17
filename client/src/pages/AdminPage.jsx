@@ -1,0 +1,261 @@
+import { useState, useEffect } from 'react';
+import socket from '../socket';
+
+export default function AdminPage() {
+  const [resumeIndex, setResumeIndex] = useState(0);
+  const [totalResumes, setTotalResumes] = useState(10);
+  const [pollActive, setPollActive] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [duration, setDuration] = useState(30);
+  const [votes, setVotes] = useState({ accept: 0, reject: 0 });
+  const [connectedStudents, setConnectedStudents] = useState(0);
+  const [logs, setLogs] = useState([]);
+
+  const addLog = (msg) => {
+    setLogs((prev) => [{ time: new Date().toLocaleTimeString(), msg }, ...prev].slice(0, 50));
+  };
+
+  useEffect(() => {
+    socket.emit('register_admin');
+
+    const onSyncState = (data) => {
+      setResumeIndex(data.currentResumeIndex);
+      setTotalResumes(data.totalResumes);
+      setPollActive(data.pollActive);
+      setTimeRemaining(data.timeRemaining);
+      setDuration(data.duration);
+      setVotes(data.votes);
+      setConnectedStudents(data.connectedStudents || 0);
+      addLog('Synced with server');
+    };
+
+    const onResumeChanged = ({ currentResumeIndex, totalResumes: total }) => {
+      setResumeIndex(currentResumeIndex);
+      setTotalResumes(total);
+      setVotes({ accept: 0, reject: 0 });
+      addLog(`Switched to Resume ${currentResumeIndex + 1}`);
+    };
+
+    const onPollStarted = ({ duration: dur }) => {
+      setPollActive(true);
+      setDuration(dur);
+      setTimeRemaining(dur);
+      setVotes({ accept: 0, reject: 0 });
+      addLog(`Poll started (${dur}s)`);
+    };
+
+    const onTimerTick = ({ timeRemaining: t }) => {
+      setTimeRemaining(t);
+    };
+
+    const onLiveTally = (data) => {
+      setVotes({ accept: data.accept, reject: data.reject });
+    };
+
+    const onPollEnded = (data) => {
+      setPollActive(false);
+      setTimeRemaining(0);
+      setVotes({ accept: data.accept, reject: data.reject });
+      addLog(`Poll ended — Accept: ${data.accept}, Reject: ${data.reject}`);
+    };
+
+    const onPollReset = () => {
+      setPollActive(false);
+      setTimeRemaining(0);
+      setVotes({ accept: 0, reject: 0 });
+      addLog('Poll reset');
+    };
+
+    const onStatusUpdate = (data) => {
+      setConnectedStudents(data.connectedStudents);
+    };
+
+    socket.on('sync_state', onSyncState);
+    socket.on('resume_changed', onResumeChanged);
+    socket.on('poll_started', onPollStarted);
+    socket.on('timer_tick', onTimerTick);
+    socket.on('live_tally', onLiveTally);
+    socket.on('poll_ended', onPollEnded);
+    socket.on('poll_reset', onPollReset);
+    socket.on('status_update', onStatusUpdate);
+
+    return () => {
+      socket.off('sync_state', onSyncState);
+      socket.off('resume_changed', onResumeChanged);
+      socket.off('poll_started', onPollStarted);
+      socket.off('timer_tick', onTimerTick);
+      socket.off('live_tally', onLiveTally);
+      socket.off('poll_ended', onPollEnded);
+      socket.off('poll_reset', onPollReset);
+      socket.off('status_update', onStatusUpdate);
+    };
+  }, []);
+
+  const totalVotes = votes.accept + votes.reject;
+
+  return (
+    <div className="min-h-screen bg-dark-900 p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">⚙️</span>
+            <div>
+              <h1 className="text-2xl font-extrabold tracking-tight">Admin Panel</h1>
+              <p className="text-text-secondary text-sm">Control the voting session</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="w-2 h-2 bg-accent-green rounded-full animate-pulse" />
+            <span className="text-text-secondary">{connectedStudents} students online</span>
+          </div>
+        </div>
+
+        {/* Status Cards */}
+        <div className="grid grid-cols-4 gap-4">
+          <div className="glass-card p-4 text-center">
+            <span className="text-3xl font-black text-text-primary">{resumeIndex + 1}</span>
+            <span className="block text-xs text-text-secondary mt-1">
+              of {totalResumes} Resumes
+            </span>
+          </div>
+          <div className="glass-card p-4 text-center">
+            <span
+              className={`text-3xl font-black tabular-nums ${
+                pollActive ? 'text-accent-blue' : 'text-text-secondary/40'
+              }`}
+            >
+              {timeRemaining}s
+            </span>
+            <span className="block text-xs text-text-secondary mt-1">
+              {pollActive ? 'Timer Active' : 'Timer Idle'}
+            </span>
+          </div>
+          <div className="glass-card p-4 text-center">
+            <span className="text-3xl font-black text-accent-green">{votes.accept}</span>
+            <span className="block text-xs text-text-secondary mt-1">Accepts</span>
+          </div>
+          <div className="glass-card p-4 text-center">
+            <span className="text-3xl font-black text-accent-red">{votes.reject}</span>
+            <span className="block text-xs text-text-secondary mt-1">Rejects</span>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="glass-card p-6">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-text-secondary mb-4">
+            Resume Navigation
+          </h2>
+          <div className="flex gap-3">
+            <button
+              onClick={() => socket.emit('change_resume', { index: resumeIndex - 1 })}
+              disabled={pollActive || resumeIndex <= 0}
+              className="admin-btn bg-dark-600 text-text-primary flex-1 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              ← Previous
+            </button>
+            <button
+              onClick={() => socket.emit('change_resume', { index: resumeIndex + 1 })}
+              disabled={pollActive || resumeIndex >= totalResumes - 1}
+              className="admin-btn bg-dark-600 text-text-primary flex-1 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+
+        <div className="glass-card p-6">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-text-secondary mb-4">
+            Poll Controls
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => socket.emit('start_poll', { duration: 15 })}
+              disabled={pollActive}
+              className="admin-btn bg-accent-blue text-white disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              ▶ Start 15s
+            </button>
+            <button
+              onClick={() => socket.emit('start_poll', { duration: 30 })}
+              disabled={pollActive}
+              className="admin-btn bg-accent-purple text-white disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              ▶ Start 30s
+            </button>
+            <button
+              onClick={() => socket.emit('end_poll')}
+              disabled={!pollActive}
+              className="admin-btn bg-accent-amber text-dark-900 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              ⏹ End Poll
+            </button>
+            <button
+              onClick={() => socket.emit('reset_poll')}
+              className="admin-btn bg-accent-red text-white"
+            >
+              ↺ Reset
+            </button>
+          </div>
+        </div>
+
+        {/* Final Results Link */}
+        <a
+          href="/results"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block glass-card p-4 text-center hover:bg-accent-purple/10 transition-colors"
+        >
+          <span className="text-lg">🏆</span>
+          <span className="ml-2 font-bold text-accent-purple">View All Results →</span>
+          <span className="block text-xs text-text-secondary mt-1">Opens final leaderboard in new tab</span>
+        </a>
+
+        {/* Live tally bar */}
+        {totalVotes > 0 && (
+          <div className="glass-card p-4">
+            <div className="flex items-center justify-between text-sm mb-2">
+              <span className="text-accent-green font-bold">
+                Accept {votes.accept} ({totalVotes > 0 ? Math.round((votes.accept / totalVotes) * 100) : 0}%)
+              </span>
+              <span className="text-text-secondary font-semibold">{totalVotes} total</span>
+              <span className="text-accent-red font-bold">
+                Reject {votes.reject} ({totalVotes > 0 ? Math.round((votes.reject / totalVotes) * 100) : 0}%)
+              </span>
+            </div>
+            <div className="w-full h-4 bg-dark-700 rounded-full overflow-hidden flex">
+              <div
+                className="h-full bg-gradient-to-r from-accent-green to-emerald-400 transition-all duration-300"
+                style={{ width: `${(votes.accept / totalVotes) * 100}%` }}
+              />
+              <div
+                className="h-full bg-gradient-to-r from-rose-500 to-accent-red transition-all duration-300"
+                style={{ width: `${(votes.reject / totalVotes) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Event Log */}
+        <div className="glass-card p-6">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-text-secondary mb-3">
+            Event Log
+          </h2>
+          <div className="max-h-48 overflow-y-auto space-y-1.5">
+            {logs.length === 0 && (
+              <p className="text-text-secondary/50 text-sm">No events yet…</p>
+            )}
+            {logs.map((log, i) => (
+              <div key={i} className="flex gap-3 text-sm">
+                <span className="text-text-secondary/50 font-mono text-xs shrink-0 pt-0.5">
+                  {log.time}
+                </span>
+                <span className="text-text-secondary">{log.msg}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
