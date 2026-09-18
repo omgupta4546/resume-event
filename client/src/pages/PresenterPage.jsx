@@ -704,11 +704,20 @@ export default function PresenterPage() {
           </div>
         )}
 
-        {/* Completed count */}
+        {/* Footer info / Correct Answer */}
         <div className="px-4 pb-3 text-center">
-          <span className="text-xs text-text-secondary/40">
-            {allResults.length} / {totalResumes} completed
-          </span>
+          {pollEnded && finalResult?.correctOption ? (
+            <div className="text-2xl font-black uppercase tracking-widest animate-fade-in">
+              <span className="text-text-secondary">Correct Answer: </span>
+              <span className={finalResult.correctOption === 'accept' ? 'text-accent-green' : 'text-accent-red'}>
+                {finalResult.correctOption}
+              </span>
+            </div>
+          ) : (
+            <span className="text-xs text-text-secondary/40">
+              {allResults.length} / {totalResumes} completed
+            </span>
+          )}
         </div>
       </div>
 
