@@ -6,12 +6,22 @@ function RegistrationForm({ onRegister }) {
   const [name, setName] = useState('');
   const [year, setYear] = useState('');
   const [branch, setBranch] = useState('');
+  const [rollNo, setRollNo] = useState('');
+  const [pin, setPin] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!name.trim()) return;
+    
+    // Check for the required Event PIN
+    if (pin !== '7073') {
+      alert('Invalid Event PIN. Please check the projector screen for the correct PIN.');
+      return;
+    }
+
     const student = {
       name: name.trim(),
+      rollNo: rollNo.trim(),
       year: year || 'N/A',
       branch: branch || 'N/A',
     };
@@ -53,6 +63,35 @@ function RegistrationForm({ onRegister }) {
               required
               autoFocus
               className="w-full px-4 py-3 rounded-xl bg-dark-700 border border-glass-border text-text-primary placeholder-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-accent-blue/50 transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
+              Event PIN *
+            </label>
+            <input
+              type="text"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              placeholder="Enter the 4-digit PIN"
+              required
+              maxLength={4}
+              className="w-full px-4 py-3 rounded-xl bg-dark-700 border border-glass-border text-text-primary placeholder-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-accent-blue/50 transition-all font-mono tracking-widest"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
+              College Roll No. *
+            </label>
+            <input
+              type="text"
+              value={rollNo}
+              onChange={(e) => setRollNo(e.target.value)}
+              placeholder="24/462"
+              required
+              className="w-full px-4 py-3 rounded-xl bg-dark-700 border border-glass-border text-text-primary placeholder-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-accent-blue/50 transition-all font-mono tracking-widest"
             />
           </div>
 
@@ -213,6 +252,7 @@ function VotingRemote({ student }) {
       if (navigator.vibrate) navigator.vibrate(50);
       socket.emit('submit_vote', {
         name: student.name,
+        rollNo: student.rollNo,
         year: student.year,
         branch: student.branch,
         vote,

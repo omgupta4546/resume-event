@@ -12,7 +12,7 @@ export default function AdminPage() {
   const [correctOption, setCorrectOption] = useState(null);
   const [customDuration, setCustomDuration] = useState(45);
   const [logs, setLogs] = useState([]);
-  
+
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
@@ -129,7 +129,7 @@ export default function AdminPage() {
             <h1 className="text-2xl font-bold text-text-primary">Admin Access</h1>
             <p className="text-text-secondary text-sm mt-1">Enter password to continue</p>
           </div>
-          
+
           <div className="space-y-4">
             <div>
               <input
@@ -142,7 +142,7 @@ export default function AdminPage() {
               />
               {authError && <p className="text-accent-red text-xs mt-2 text-center animate-shake">{authError}</p>}
             </div>
-            
+
             <button
               type="submit"
               className="w-full py-3 rounded-xl bg-accent-blue font-bold text-white transition-all hover:brightness-110 active:scale-95"
@@ -183,9 +183,8 @@ export default function AdminPage() {
           </div>
           <div className="glass-card p-4 text-center">
             <span
-              className={`text-3xl font-black tabular-nums ${
-                pollActive ? 'text-accent-blue' : 'text-text-secondary/40'
-              }`}
+              className={`text-3xl font-black tabular-nums ${pollActive ? 'text-accent-blue' : 'text-text-secondary/40'
+                }`}
             >
               {timeRemaining}s
             </span>
@@ -246,10 +245,10 @@ export default function AdminPage() {
               ▶ Start 30s
             </button>
           </div>
-          
+
           <div className="flex gap-3 mb-4">
-            <input 
-              type="number" 
+            <input
+              type="number"
               value={customDuration}
               onChange={(e) => setCustomDuration(Number(e.target.value))}
               min="1"
@@ -315,28 +314,62 @@ export default function AdminPage() {
             <button
               onClick={() => socket.emit('set_correct_option', { option: 'accept' })}
               disabled={!pollActive}
-              className={`admin-btn font-bold transition-all ${
-                correctOption === 'accept' 
-                  ? 'bg-accent-green text-dark-900 border-2 border-white' 
+              className={`admin-btn font-bold transition-all ${correctOption === 'accept'
+                  ? 'bg-accent-green text-dark-900 border-2 border-white'
                   : 'bg-dark-600 text-accent-green hover:bg-dark-500'
-              } disabled:opacity-30 disabled:cursor-not-allowed`}
+                } disabled:opacity-30 disabled:cursor-not-allowed`}
             >
               ✅ Set ACCEPT as Correct
             </button>
             <button
               onClick={() => socket.emit('set_correct_option', { option: 'reject' })}
               disabled={!pollActive}
-              className={`admin-btn font-bold transition-all ${
-                correctOption === 'reject' 
-                  ? 'bg-accent-red text-white border-2 border-white' 
+              className={`admin-btn font-bold transition-all ${correctOption === 'reject'
+                  ? 'bg-accent-red text-white border-2 border-white'
                   : 'bg-dark-600 text-accent-red hover:bg-dark-500'
-              } disabled:opacity-30 disabled:cursor-not-allowed`}
+                } disabled:opacity-30 disabled:cursor-not-allowed`}
             >
               ❌ Set REJECT as Correct
             </button>
           </div>
           <p className="text-xs text-text-secondary mt-3">
             * You can only set the correct answer while the poll is active. Students won't see this.
+          </p>
+        </div>
+
+        {/* Presenter Soundboard */}
+        <div className="glass-card p-6">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-text-secondary mb-4">
+            Presenter Soundboard 📢
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => socket.emit('play_sound', { sound: 'applause' })}
+              className="admin-btn bg-accent-green text-dark-900 font-bold"
+            >
+              👏 Applause / 7 Crore!
+            </button>
+            <button
+              onClick={() => socket.emit('play_sound', { sound: 'wrong' })}
+              className="admin-btn bg-accent-red text-white font-bold"
+            >
+              ❌ Wrong Buzzer / Oh No
+            </button>
+            <button
+              onClick={() => socket.emit('play_sound', { sound: 'suspense' })}
+              className="admin-btn bg-accent-purple text-white font-bold"
+            >
+              🥁 Suspense Drumroll
+            </button>
+            <button
+              onClick={() => socket.emit('play_sound', { sound: 'tada' })}
+              className="admin-btn bg-accent-blue text-white font-bold"
+            >
+              🎉 Ta-Da! (Winner)
+            </button>
+          </div>
+          <p className="text-xs text-text-secondary mt-3">
+            * These sounds will play directly on the Presenter screen (projector speakers).
           </p>
         </div>
 

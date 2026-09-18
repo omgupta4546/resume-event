@@ -26,6 +26,7 @@ const voteRecordSchema = new mongoose.Schema({
   voters: [
     {
       name: String,
+      rollNo: String,
       year: String,
       branch: String,
       vote: {

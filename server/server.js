@@ -175,12 +175,12 @@ io.on('connection', (socket) => {
   });
 
   // ── Submit Vote ──
-  socket.on('submit_vote', ({ name, year, branch, vote }) => {
+  socket.on('submit_vote', ({ name, rollNo, year, branch, vote }) => {
     if (!state.pollActive) return;
     if (!name || !vote) return;
     if (vote !== 'accept' && vote !== 'reject') return;
 
-    const uniqueKey = `${name.trim().toLowerCase()}|${(branch || '').trim().toLowerCase()}`;
+    const uniqueKey = `${name.trim().toLowerCase()}|${(rollNo || '').trim().toLowerCase()}`;
     if (state.votedUsers.has(uniqueKey)) {
       socket.emit('vote_error', { message: 'You have already voted.' });
       return;
@@ -188,7 +188,7 @@ io.on('connection', (socket) => {
 
     // Record vote with speed score
     const score = state.duration > 0 ? Math.max(10, Math.round((state.timeRemaining / state.duration) * 1000)) : 100;
-    state.votedUsers.set(uniqueKey, { name, year, branch, vote, score });
+    state.votedUsers.set(uniqueKey, { name, rollNo, year, branch, vote, score });
     state.votes[vote]++;
 
     // Acknowledge to student
@@ -246,6 +246,12 @@ io.on('connection', (socket) => {
     io.to('control').emit('show_emoji', { emoji, id: Math.random().toString(36).substring(7) });
   });
 
+  // ── Presenter Soundboard ──
+  socket.on('play_sound', ({ sound }) => {
+    if (socket.data.role !== 'admin') return;
+    io.to('control').emit('play_sound_effect', { sound });
+  });
+
   // ── Disconnect ──
   socket.on('disconnect', () => {
     if (socket.data.role === 'student') {
@@ -277,6 +283,7 @@ async function endPoll() {
   for (const [, v] of state.votedUsers) {
     voters.push({
       name: v.name,
+      rollNo: v.rollNo,
       year: v.year,
       branch: v.branch,
       vote: v.vote,
@@ -310,7 +317,7 @@ async function endPoll() {
 
   // Final tally to control room
   io.to('control').emit('live_tally', finalTally);
-  
+
   // Broadcast updated allResults to control room for the Leaderboard
   io.to('control').emit('all_results', { results: allResults });
 

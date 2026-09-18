@@ -52,6 +52,99 @@ const playBuzzerSound = () => {
     console.warn(e);
   }
 };
+const playTaDaSound = () => {
+  initAudio();
+  if (!audioCtx) return;
+  try {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+    gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+    
+    // Ta
+    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
+    
+    // Da
+    osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.15); // G5
+    gain.gain.setValueAtTime(0.5, audioCtx.currentTime + 0.15);
+    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1);
+    
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 1);
+  } catch (e) {
+    console.warn(e);
+  }
+};
+
+const playDrumrollSound = () => {
+  initAudio();
+  if (!audioCtx) return;
+  try {
+    const bufferSize = audioCtx.sampleRate * 2;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+    
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 400;
+    
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 1);
+    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 2);
+    
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    noise.start();
+  } catch (e) {
+    console.warn(e);
+  }
+};
+
+const playApplauseSound = () => {
+  initAudio();
+  if (!audioCtx) return;
+  try {
+    const bufferSize = audioCtx.sampleRate * 2; 
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+    
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 1000;
+    
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.2);
+    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 2);
+    
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    noise.start();
+  } catch (e) {
+    console.warn(e);
+  }
+};
 
 export default function PresenterPage() {
   const [resumeIndex, setResumeIndex] = useState(0);
@@ -63,7 +156,6 @@ export default function PresenterPage() {
   const [connectedStudents, setConnectedStudents] = useState(0);
   const [pollEnded, setPollEnded] = useState(false);
   const [finalResult, setFinalResult] = useState(null);
-  const [showResultOverlay, setShowResultOverlay] = useState(false);
   const [allResults, setAllResults] = useState([]);
   const [showFinalBoard, setShowFinalBoard] = useState(false);
   const [showIntermediateBoard, setShowIntermediateBoard] = useState(false);
@@ -89,7 +181,6 @@ export default function PresenterPage() {
       setTotalResumes(total);
       setPollEnded(false);
       setFinalResult(null);
-      setShowResultOverlay(false);
       setVotes({ accept: 0, reject: 0 });
     };
 
@@ -100,7 +191,6 @@ export default function PresenterPage() {
       setVotes({ accept: 0, reject: 0 });
       setPollEnded(false);
       setFinalResult(null);
-      setShowResultOverlay(false);
       setShowFinalBoard(false);
       setShowIntermediateBoard(false);
     };
@@ -122,7 +212,6 @@ export default function PresenterPage() {
       setPollEnded(true);
       setFinalResult(data);
       setVotes({ accept: data.accept, reject: data.reject });
-      setShowResultOverlay(true);
       playBuzzerSound();
     };
 
@@ -132,7 +221,6 @@ export default function PresenterPage() {
       setVotes({ accept: 0, reject: 0 });
       setPollEnded(false);
       setFinalResult(null);
-      setShowResultOverlay(false);
     };
 
     const onStatusUpdate = (data) => {
@@ -154,6 +242,13 @@ export default function PresenterPage() {
       setShowIntermediateBoard(true);
     };
 
+    const onPlaySoundEffect = ({ sound }) => {
+      if (sound === 'wrong') playBuzzerSound();
+      else if (sound === 'tada') playTaDaSound();
+      else if (sound === 'suspense') playDrumrollSound();
+      else if (sound === 'applause') playApplauseSound();
+    };
+
     socket.on('sync_state', onSyncState);
     socket.on('resume_changed', onResumeChanged);
     socket.on('poll_started', onPollStarted);
@@ -165,6 +260,7 @@ export default function PresenterPage() {
     socket.on('all_results', onAllResults);
     socket.on('show_emoji', onShowEmoji);
     socket.on('show_intermediate_leaderboard', onShowIntermediate);
+    socket.on('play_sound_effect', onPlaySoundEffect);
 
     return () => {
       socket.off('sync_state', onSyncState);
@@ -178,6 +274,7 @@ export default function PresenterPage() {
       socket.off('all_results', onAllResults);
       socket.off('show_emoji', onShowEmoji);
       socket.off('show_intermediate_leaderboard', onShowIntermediate);
+      socket.off('play_sound_effect', onPlaySoundEffect);
     };
   }, []);
 
@@ -190,7 +287,6 @@ export default function PresenterPage() {
         case 'ArrowRight':
           e.preventDefault();
           if (!pollActive) {
-            setShowResultOverlay(false);
             setShowFinalBoard(false);
             socket.emit('change_resume', { index: resumeIndex + 1 });
           }
@@ -198,23 +294,19 @@ export default function PresenterPage() {
         case 'ArrowLeft':
           e.preventDefault();
           if (!pollActive) {
-            setShowResultOverlay(false);
             setShowFinalBoard(false);
             socket.emit('change_resume', { index: resumeIndex - 1 });
           }
           break;
         case ' ':
           e.preventDefault();
-          if (showResultOverlay) {
-            setShowResultOverlay(false);
-          } else if (!pollActive) {
+          if (!pollActive) {
             socket.emit('start_poll', { duration: 30 });
           }
           break;
         case 'r':
         case 'R':
           e.preventDefault();
-          setShowResultOverlay(false);
           socket.emit('reset_poll');
           break;
         case 'f':
@@ -231,14 +323,13 @@ export default function PresenterPage() {
           break;
         case 'Escape':
           e.preventDefault();
-          setShowResultOverlay(false);
           setShowFinalBoard(false);
           break;
         default:
           break;
       }
     },
-    [pollActive, resumeIndex, showResultOverlay]
+    [pollActive, resumeIndex]
   );
 
   useEffect(() => {
@@ -261,9 +352,9 @@ export default function PresenterPage() {
     allResults.forEach(poll => {
       if (!poll.correctOption) return;
       (poll.voters || []).forEach(voter => {
-        const key = `${voter.name}|${voter.branch}`;
+        const key = `${voter.name}|${voter.rollNo || voter.branch}`;
         if (!studentScores[key]) {
-          studentScores[key] = { name: voter.name, branch: voter.branch, score: 0, correct: 0, total: 0, streak: 0 };
+          studentScores[key] = { name: voter.name, rollNo: voter.rollNo, branch: voter.branch, score: 0, correct: 0, total: 0, streak: 0 };
         }
         studentScores[key].total++;
         if (voter.vote === poll.correctOption) {
@@ -293,7 +384,7 @@ export default function PresenterPage() {
                   <span className="text-5xl font-black text-text-secondary w-16">{i + 1}</span>
                   <div className="text-left">
                     <h2 className="text-3xl font-bold text-text-primary">{s.name}</h2>
-                    <p className="text-lg text-text-secondary mt-1">{s.branch}</p>
+                    <p className="text-lg text-text-secondary mt-1">{s.rollNo || s.branch}</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -437,66 +528,6 @@ export default function PresenterPage() {
 
   return (
     <div className="h-screen w-screen flex bg-dark-900 overflow-hidden select-none">
-      {/* ── INDIVIDUAL RESULT OVERLAY ── */}
-      {showResultOverlay && finalResult && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-dark-900/90 backdrop-blur-md animate-fade-in">
-          <div className="text-center animate-slide-up max-w-lg">
-            {/* Big verdict */}
-            <div className="text-8xl mb-6">
-              {finalResult.accept > finalResult.reject
-                ? '✅'
-                : finalResult.reject > finalResult.accept
-                ? '❌'
-                : '🤝'}
-            </div>
-            <h2
-              className={`text-5xl font-black mb-4 ${
-                finalResult.accept > finalResult.reject
-                  ? 'text-accent-green'
-                  : finalResult.reject > finalResult.accept
-                  ? 'text-accent-red'
-                  : 'text-accent-amber'
-              }`}
-            >
-              {finalResult.accept > finalResult.reject
-                ? 'ACCEPTED'
-                : finalResult.reject > finalResult.accept
-                ? 'REJECTED'
-                : 'TIE'}
-            </h2>
-            <p className="text-2xl text-text-secondary mb-8">
-              Resume {finalResult.currentResumeIndex + 1}
-            </p>
-
-            {/* Score cards */}
-            <div className="flex gap-6 justify-center mb-8">
-              <div className="glass-card px-8 py-5 text-center">
-                <span className="text-5xl font-black text-accent-green">{finalResult.accept}</span>
-                <span className="block text-sm text-text-secondary mt-2 uppercase tracking-wider">Accept</span>
-                <span className="block text-lg font-bold text-text-primary mt-1">
-                  {finalResult.totalVotes > 0 ? Math.round((finalResult.accept / finalResult.totalVotes) * 100) : 0}%
-                </span>
-              </div>
-              <div className="glass-card px-8 py-5 text-center">
-                <span className="text-5xl font-black text-accent-red">{finalResult.reject}</span>
-                <span className="block text-sm text-text-secondary mt-2 uppercase tracking-wider">Reject</span>
-                <span className="block text-lg font-bold text-text-primary mt-1">
-                  {finalResult.totalVotes > 0 ? Math.round((finalResult.reject / finalResult.totalVotes) * 100) : 0}%
-                </span>
-              </div>
-            </div>
-
-            {/* Total + hint */}
-            <p className="text-text-secondary text-lg mb-4">
-              {finalResult.totalVotes} total votes
-            </p>
-            <p className="text-text-secondary/40 text-sm">
-              Press → for next resume • Press F for final leaderboard
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* ── Left: Resume Display ── */}
       <div className="flex-1 flex flex-col relative min-w-0">
         {/* Top bar */}
@@ -504,6 +535,10 @@ export default function PresenterPage() {
           <div className="flex items-center gap-3">
             <span className="text-2xl">🗳️</span>
             <h1 className="text-lg font-bold tracking-tight">Resume Vote</h1>
+            <div className="ml-6 px-3 py-1 bg-dark-700/80 rounded-lg border border-glass-border shadow-sm flex items-center">
+              <span className="text-text-secondary text-[10px] font-bold uppercase tracking-wider mr-2">Event PIN</span>
+              <span className="text-accent-blue font-mono font-black tracking-widest text-xl">7073</span>
+            </div>
           </div>
           <div className="flex items-center gap-4 text-sm text-text-secondary">
             <span className="flex items-center gap-1.5">
@@ -528,11 +563,10 @@ export default function PresenterPage() {
               key={resumeIndex}
               src={resumeImagePath}
               alt={`Resume ${resumeIndex + 1}`}
-              className={`${
-                isZoomed 
-                  ? 'w-full h-auto rounded-none border-none shadow-none' 
+              className={`${isZoomed
+                  ? 'w-full h-auto rounded-none border-none shadow-none'
                   : 'h-[calc(100vh-70px)] max-h-full max-w-full w-auto rounded-xl border border-glass-border shadow-2xl'
-              } animate-fade-in object-contain mx-auto`}
+                } animate-fade-in object-contain mx-auto`}
               onError={(e) => {
                 e.target.style.display = 'none';
                 e.target.nextSibling.style.display = 'flex';
@@ -580,13 +614,12 @@ export default function PresenterPage() {
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span
-                className={`text-4xl font-black tabular-nums ${
-                  isUrgent
+                className={`text-4xl font-black tabular-nums ${isUrgent
                     ? 'text-accent-red animate-countdown-pulse'
                     : pollActive
-                    ? 'text-text-primary'
-                    : 'text-text-secondary/50'
-                }`}
+                      ? 'text-text-primary'
+                      : 'text-text-secondary/50'
+                  }`}
               >
                 {timeRemaining}
               </span>
@@ -656,19 +689,18 @@ export default function PresenterPage() {
         </div>
 
         {/* Result banner */}
-        {pollEnded && finalResult && !showResultOverlay && (
+        {pollEnded && finalResult && (
           <div
-            className={`mx-4 mb-4 p-4 rounded-xl text-center font-bold text-lg animate-slide-up ${
-              finalResult.accept >= finalResult.reject
+            className={`mx-4 mb-4 p-4 rounded-xl text-center font-bold text-lg animate-slide-up ${finalResult.accept >= finalResult.reject
                 ? 'bg-accent-green/15 border border-accent-green/30 text-accent-green'
                 : 'bg-accent-red/15 border border-accent-red/30 text-accent-red'
-            }`}
+              }`}
           >
             {finalResult.accept > finalResult.reject
               ? '✅ ACCEPTED'
               : finalResult.reject > finalResult.accept
-              ? '❌ REJECTED'
-              : '🤝 TIE'}
+                ? '❌ REJECTED'
+                : '🤝 TIE'}
           </div>
         )}
 

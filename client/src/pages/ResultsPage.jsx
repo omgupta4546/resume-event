@@ -49,10 +49,11 @@ export default function ResultsPage() {
       totalQuestionsWithAnswers++;
       if (poll.voters && Array.isArray(poll.voters)) {
         poll.voters.forEach((voter) => {
-          const key = `${voter.name.trim().toLowerCase()}|${voter.branch.trim().toLowerCase()}`;
+          const key = `${voter.name.trim().toLowerCase()}|${(voter.rollNo || voter.branch || '').trim().toLowerCase()}`;
           if (!studentScores[key]) {
             studentScores[key] = {
               name: voter.name,
+              rollNo: voter.rollNo,
               branch: voter.branch,
               score: 0,
               correct: 0,
@@ -120,7 +121,7 @@ export default function ResultsPage() {
                     <div className="glass-card p-6 flex flex-col items-center justify-end border-t-4 border-t-slate-400 transform translate-y-4">
                       <span className="text-4xl mb-2">🥈</span>
                       <h3 className="text-xl font-bold text-text-primary">{top3[1].name}</h3>
-                      <p className="text-text-secondary text-sm mb-2">{top3[1].branch}</p>
+                      <p className="text-text-secondary text-sm mb-2">{top3[1].rollNo || top3[1].branch}</p>
                       <p className="text-accent-blue text-xs font-bold mb-4">{getRankTitle(top3[1].correct, totalQuestionsWithAnswers)}</p>
                       <div className="bg-dark-600 px-4 py-2 rounded-lg w-full text-center">
                         <span className="font-bold text-lg text-slate-300">{top3[1].score} pts</span>
@@ -133,7 +134,7 @@ export default function ResultsPage() {
                     <div className="glass-card p-6 flex flex-col items-center justify-end border-t-4 border-t-yellow-400 bg-gradient-to-b from-yellow-400/10 to-transparent">
                       <span className="text-5xl mb-2 animate-pulse">👑</span>
                       <h3 className="text-2xl font-bold text-text-primary">{top3[0].name}</h3>
-                      <p className="text-text-secondary text-sm mb-2">{top3[0].branch}</p>
+                      <p className="text-text-secondary text-sm mb-2">{top3[0].rollNo || top3[0].branch}</p>
                       <p className="text-accent-blue text-sm font-bold mb-4">{getRankTitle(top3[0].correct, totalQuestionsWithAnswers)}</p>
                       <div className="bg-dark-600 px-4 py-2 rounded-lg w-full text-center">
                         <span className="font-bold text-xl text-yellow-400">{top3[0].score} pts</span>
@@ -146,7 +147,7 @@ export default function ResultsPage() {
                     <div className="glass-card p-6 flex flex-col items-center justify-end border-t-4 border-t-amber-600 transform translate-y-8">
                       <span className="text-4xl mb-2">🥉</span>
                       <h3 className="text-xl font-bold text-text-primary">{top3[2].name}</h3>
-                      <p className="text-text-secondary text-sm mb-2">{top3[2].branch}</p>
+                      <p className="text-text-secondary text-sm mb-2">{top3[2].rollNo || top3[2].branch}</p>
                       <p className="text-accent-blue text-xs font-bold mb-4">{getRankTitle(top3[2].correct, totalQuestionsWithAnswers)}</p>
                       <div className="bg-dark-600 px-4 py-2 rounded-lg w-full text-center">
                         <span className="font-bold text-lg text-amber-500">{top3[2].score} pts</span>
@@ -175,6 +176,7 @@ export default function ResultsPage() {
                           <td className="p-4 text-text-secondary font-bold">#{i + 4}</td>
                           <td className="p-4 text-text-primary font-semibold">
                             {student.name} {student.streak >= 2 && '🔥'}
+                            {student.rollNo && <span className="block text-xs text-text-secondary font-normal">{student.rollNo}</span>}
                           </td>
                           <td className="p-4 text-text-secondary text-sm">
                             {getRankTitle(student.correct, totalQuestionsWithAnswers)}
