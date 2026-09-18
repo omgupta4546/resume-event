@@ -10,7 +10,6 @@ const VoteRecord = require('./models/VoteRecord');
 const PORT = process.env.PORT || 4000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/resume-vote';
 
-// Resume image paths — add/remove entries here
 const RESUMES = [
   '/resumes/resume1.png',
   '/resumes/resume2.png',
@@ -20,6 +19,8 @@ const RESUMES = [
   '/resumes/resume6.png',
   '/resumes/resume7.png',
   '/resumes/resume8.png',
+  '/resumes/resume9.png',
+  '/resumes/resume10.png',
 ];
 
 // ─── Express + Socket.io Setup ───────────────────────────────────
